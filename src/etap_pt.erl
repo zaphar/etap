@@ -1,15 +1,11 @@
--module(erl_pt).
--export([parse_transfrom/2]).
+-module(etap_pt).
+-compile(export_all).
 
+%% TODO(jwall): can I do this in a single pass?
 parse_transform(Forms, _Options) ->
     {Count, Filtered} = process_forms(0, [], Forms),
     Finished = replace_count(Count, Filtered),
-    %io:format("Forms:~n ~w~n", [Forms]),
-    io:format("Filtered:~n ~p~n", [Filtered]),
-    io:format("Finished:~n ~p~n", [Finished]),
-    %io:format("Count:~n ~w~n", [Count]),
     Finished
-    %%, Filtered
     .
 
 process_forms(Count, AccForms, []) ->
