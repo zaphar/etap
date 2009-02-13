@@ -22,6 +22,14 @@
 %% OTHER DEALINGS IN THE SOFTWARE.
 %%
 %% ChangeLog
+%% 2009-01-23 ngerakines
+%%   - Added etap_report module to build pretty HTML code coverage reports
+%%   - Updated readme and misc documentation
+%% 2009-01-21 ngerakines
+%%   - Bumpting to 0.3.3
+%%   - Updated documentation for the coverage report script.
+%% 2009-01-12 ngerakines
+%%   - Added experimental code coverage support.
 %% 2009-01-01 ngerakines
 %%   - Added etap:skip/1 and etap:skip/2
 %%   - Added skip support to etap:plan/1
@@ -77,7 +85,7 @@
 %% 
 %% @author Nick Gerakines <nick@gerakines.net> [http://socklabs.com/]
 %% @author Jeremy Wall <jeremy@marzhillstudios.com>
-%% @version 0.3.2
+%% @version 0.3.3
 %% @copyright 2007-2008 Jeremy Wall, 2008 Nick Gerakines
 %% @reference http://testanything.org/wiki/index.php/Main_Page
 %% @reference http://en.wikipedia.org/wiki/Test_Anything_Protocol
@@ -101,7 +109,9 @@
 -export([
     ensure_test_server/0, start_etap_server/0, test_server/1,
     diag/1, plan/1, end_tests/0, not_ok/2, ok/2, is/3, isnt/3,
-    any/3, none/3, fun_is/3, is_greater/3, skip/1, skip/2
+    any/3, none/3, fun_is/3, is_greater/3, skip/1, skip/2,
+    ensure_coverage_starts/0, ensure_coverage_ends/0, coverage_report/0,
+    datetime/1
 ]).
 
 -record(test_state, {planned = 0, count = 0, pass = 0, fail = 0, skip = 0, skip_reason = ""}).
@@ -115,17 +125,56 @@ plan(skip) ->
 plan({skip, Reason}) ->
     io:format("1..0 # skip ~s~n", [Reason]);
 plan(N) when is_integer(N), N > 0 ->
+    ensure_coverage_starts(),
     ensure_test_server(),
     etap_server ! {self(), plan, N},
     ok.
 
+%% @private
+ensure_coverage_starts() ->
+    case os:getenv("COVER") of
+        false -> ok;
+        _ ->
+            BeamDir = case os:getenv("COVER_BIN") of false -> "ebin"; X -> X end,
+            cover:compile_beam_directory(BeamDir)
+    end.
+
+%% @private
+ensure_coverage_ends() ->
+    case os:getenv("COVER") of
+        false -> ok;
+        _ ->
+            filelib:ensure_dir("cover/"),
+            Name = lists:flatten([
+                io_lib:format("~.16b", [X]) || X <- binary_to_list(erlang:md5(
+                     term_to_binary({make_ref(), now()})
+                ))
+            ]),
+            X = cover:export("cover/" ++ Name ++ ".coverdata"),
+            io:format("X ~p~n", [X])
+    end.
+
 %% @spec end_tests() -> ok
 %% @doc End the current test plan and output test results.
 end_tests() ->
+    ensure_coverage_ends(),
     case whereis(etap_server) of
         undefined -> ok;
         _ -> etap_server ! done, ok
     end.
+
+%% @spec coverage_report() -> ok
+%% @doc Use the cover module's covreage report builder to create code coverage
+%% reports from recently created coverdata files.
+coverage_report() ->
+    [cover:import(File) || File <- filelib:wildcard("cover/*.coverdata")],
+    lists:foreach(
+        fun(Mod) ->
+            cover:analyse_to_file(Mod, atom_to_list(Mod) ++ "_coverage.txt", [])
+        end,
+        cover:imported_modules()
+    ),
+    ok.
 
 %% @spec diag(S) -> ok
 %%       S = string()
@@ -155,11 +204,11 @@ not_ok(Expr, Desc) -> mk_tap(Expr == false, Desc).
 is(Got, Expected, Desc) ->
     case mk_tap(Got == Expected, Desc) of
         false ->
-            etap_server ! {self(), log, "    ---"},
-            etap_server ! {self(), log, io_lib:format("    description: ~p", [Desc])},
-            etap_server ! {self(), log, io_lib:format("    found:       ~p", [Got])},
-            etap_server ! {self(), log, io_lib:format("    wanted:      ~p", [Expected])},
-            etap_server ! {self(), log, "    ..."},
+            etap_server ! {self(), diag, "    ---"},
+            etap_server ! {self(), diag, io_lib:format("    description: ~p", [Desc])},
+            etap_server ! {self(), diag, io_lib:format("    found:       ~p", [Got])},
+            etap_server ! {self(), diag, io_lib:format("    wanted:      ~p", [Expected])},
+            etap_server ! {self(), diag, "    ..."},
             false;
         true -> true
     end.
@@ -223,10 +272,6 @@ skip(TestFun, Reason) ->
     ok.
 
 %% @private
-begin_skip() ->
-    begin_skip("").
-
-%% @private
 begin_skip(Reason) ->
     etap_server ! {self(), begin_skip, Reason}.
 
@@ -271,9 +316,9 @@ start_etap_server() ->
 test_server(State) ->
     NewState = receive
         {_From, plan, N} ->
-            io:format("1..~p~n", [N]),
             io:format("# Current time local ~s~n", [datetime(erlang:localtime())]),
             io:format("# Using etap version 0.3~n"),
+            io:format("1..~p~n", [N]),
             State#test_state{
                 planned = N,
                 count = 0,
