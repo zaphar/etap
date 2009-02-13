@@ -1,8 +1,10 @@
 -module(etap_t_002).
 -export([start/0]).
 
+-include("etap.hrl").
+
 start() ->
-    etap:plan(67),
+    calc_plan,
     etap:diag("Test the etap_can module."),
     test_etap(),
     test_etap_application(),
@@ -13,6 +15,7 @@ start() ->
     test_etap_process(),
     etap:end_tests().
 
+-plan(23).
 test_etap() ->
     etap_can:loaded_ok(etap, "module 'etap' loaded"),
     etap_can:can_ok(etap, plan),
@@ -39,6 +42,7 @@ test_etap() ->
     etap_can:can_ok(etap, fun_is, 3),
     ok.
 
+-plan(11).
 test_etap_application() ->
     etap_can:loaded_ok(etap_application, "module 'etap_application' loaded"),
     etap_can:can_ok(etap_application, start_ok),
@@ -53,6 +57,7 @@ test_etap_application() ->
     etap_can:can_ok(etap_application, load_ok, 2),
     ok.
 
+-plan(9).
 test_etap_can() ->
     etap_can:loaded_ok(etap_can, "module 'etap_can' loaded"),
     etap_can:can_ok(etap_can, loaded_ok),
@@ -65,6 +70,7 @@ test_etap_can() ->
     etap_can:can_ok(etap_can, is_behaviour, 2),
     ok.
 
+-plan(7).
 test_etap_exception() ->
     etap_can:loaded_ok(etap_exception, "module 'etap_exception' loaded"),
     etap_can:can_ok(etap_exception, dies_ok),
@@ -75,12 +81,14 @@ test_etap_exception() ->
     etap_can:can_ok(etap_exception, throws_ok, 3),
     ok.
 
+-plan(3).
 test_etap_request() ->
     etap_can:loaded_ok(etap_request, "module 'etap_request' loaded"),
     etap_can:can_ok(etap_request, status_is),
     etap_can:can_ok(etap_request, status_is, 3),
     ok.
 
+-plan(7).
 test_etap_web() ->
     etap_can:loaded_ok(etap_web, "module 'etap_web' loaded"),
     etap_can:can_ok(etap_web, simple_200),
@@ -91,6 +99,7 @@ test_etap_web() ->
     etap_can:can_ok(etap_web, build_request, 4),
     ok.
 
+-plan(7).
 test_etap_process() ->
     etap_can:loaded_ok(etap_process, "module 'etap_process' loaded"),
     etap_can:can_ok(etap_process, is_pid),
